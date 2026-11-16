@@ -65,55 +65,50 @@ enemies = []
 bonuses = []
 
 score = 0
-
 image_index = 0
-
 game_over = False
+running = True
 
-
-def draw_play_again_button():
+def get_button_rect():
     button_text = FONT.render("Играть заново", True, COLOR_BLACK)
-    button_rect = button_text.get_rect(center=(WIDTH/2, HEIGHT/2 + 50))
-    pygame.draw.rect(main_display, COLOR_GREEN, button_rect.inflate(20, 10))
-    main_display.blit(button_text, button_rect)
+    return button_text.get_rect(center=(WIDTH/2, HEIGHT/2 + 50))
 
 
-def check_play_again_button():
-    mouse_pos = pygame.mouse.get_pos()
-    button_rect = FONT.render("Играть заново", True, COLOR_BLACK).get_rect(center=(WIDTH/2, HEIGHT/2 + 50))
-    if button_rect.collidepoint(mouse_pos):
-        return True
-    return False
-
-
-while not game_over:
+while running:
     FPS.tick(120)
 
     for event in pygame.event.get():
         if event.type == QUIT:
-            game_over = True
+            running = False
 
-        if event.type == CREATE_ENEMY and len(enemies) < 5:
-            enemies.append(create_enemy())
+        if not game_over:
+            if event.type == CREATE_ENEMY and len(enemies) < 5:
+                enemies.append(create_enemy())
 
-        if event.type == CREATE_BONUS and len(bonuses) < 3:
-            bonuses.append(create_bonus())
+            if event.type == CREATE_BONUS and len(bonuses) < 3:
+                bonuses.append(create_bonus())
 
-        if event.type == CHANGE_IMAGE:
-            player = pygame.image.load(os.path.join(IMAGE_PATH, PLAYER_IMAGES[image_index]))
-            image_index += 1
-            if image_index >= len(PLAYER_IMAGES):
-                image_index = 0
+            if event.type == CHANGE_IMAGE:
+                player = pygame.image.load(os.path.join(IMAGE_PATH, PLAYER_IMAGES[image_index]))
+                image_index += 1
+                if image_index >= len(PLAYER_IMAGES):
+                    image_index = 0
 
+        # Обработка клика для перезапуска игры
         if event.type == MOUSEBUTTONDOWN and game_over:
-            if check_play_again_button():
-                # Reset game variables
+            mouse_pos = pygame.mouse.get_pos()
+            button_text = FONT.render("Играть заново", True, COLOR_BLACK)
+            button_rect = button_text.get_rect(center=(WIDTH/2, HEIGHT/2 + 50))
+            if button_rect.inflate(20, 10).collidepoint(mouse_pos):
+                # Сброс переменных игры
                 enemies = []
                 bonuses = []
                 score = 0
                 image_index = 0
+                player_rect.center = (WIDTH/2, HEIGHT/2)
                 game_over = False
 
+    # Фоновое движение (работает всегда или только во время игры)
     bg_X1 -= bg_move
     bg_X2 -= bg_move
 
@@ -126,49 +121,52 @@ while not game_over:
     main_display.blit(bg, (bg_X1, 0))
     main_display.blit(bg, (bg_X2, 0))
 
-    keys = pygame.key.get_pressed()
+    if not game_over:
+        keys = pygame.key.get_pressed()
 
-    if keys[K_DOWN] and player_rect.bottom < HEIGHT:
-        player_rect = player_rect.move(player_move_down)
+        if keys[K_DOWN] and player_rect.bottom < HEIGHT:
+            player_rect = player_rect.move(player_move_down)
 
-    if keys[K_RIGHT] and player_rect.right < WIDTH:
-        player_rect = player_rect.move(player_move_right)
+        if keys[K_RIGHT] and player_rect.right < WIDTH:
+            player_rect = player_rect.move(player_move_right)
 
-    if keys[K_UP] and player_rect.top > 0:
-        player_rect = player_rect.move(player_move_up)
+        if keys[K_UP] and player_rect.top > 0:
+            player_rect = player_rect.move(player_move_up)
 
-    if keys[K_LEFT] and player_rect.left > 0:
-        player_rect = player_rect.move(player_move_left)
+        if keys[K_LEFT] and player_rect.left > 0:
+            player_rect = player_rect.move(player_move_left)
 
-    for enemy in enemies:
-        enemy[1] = enemy[1].move(enemy[2])
-        main_display.blit(enemy[0], enemy[1])
+        for enemy in enemies[:]:
+            enemy[1] = enemy[1].move(enemy[2])
+            main_display.blit(enemy[0], enemy[1])
 
-        if player_rect.colliderect(enemy[1]) or enemy[1].top < 0 or enemy[1].bottom > HEIGHT:
-            game_over = True
+            if player_rect.colliderect(enemy[1]):
+                game_over = True
 
-    for bonus in bonuses:
-        bonus[1] = bonus[1].move(bonus[2])
-        main_display.blit(bonus[0], bonus[1])
+            if enemy[1].left < 0:
+                enemies.remove(enemy)
 
-        if player_rect.colliderect(bonus[1]):
-            score += 1
-            bonuses.pop(bonuses.index(bonus))
+        for bonus in bonuses[:]:
+            bonus[1] = bonus[1].move(bonus[2])
+            main_display.blit(bonus[0], bonus[1])
 
+            if player_rect.colliderect(bonus[1]):
+                score += 1
+                bonuses.remove(bonus)
+            elif bonus[1].top > HEIGHT:  # Исправлено: удаление бонуса, упавшего вниз
+                bonuses.remove(bonus)
+
+    # Отрисовка элементов интерфейса
     main_display.blit(FONT.render(str(score), True, COLOR_BLACK), (WIDTH-50, 20))
     main_display.blit(player, player_rect)
 
+    # Если игра окончена — рисуем кнопку поверх всего
+    if game_over:
+        button_text = FONT.render("Играть заново", True, COLOR_BLACK)
+        button_rect = button_text.get_rect(center=(WIDTH/2, HEIGHT/2 + 50))
+        pygame.draw.rect(main_display, COLOR_GREEN, button_rect.inflate(20, 10))
+        main_display.blit(button_text, button_rect)
+
     pygame.display.flip()
 
-    for enemy in enemies:
-        if enemy[1].left < 0:
-            enemies.pop(enemies.index(enemy))
-
-    for bonus in bonuses:
-        if bonus[1].top < 0:
-            bonuses.pop(bonuses.index(bonus))
-
-    if game_over:
-        draw_play_again_button()
-
-pygame.display.flip()
+pygame.quit()
